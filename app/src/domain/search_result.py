@@ -14,5 +14,5 @@ class SearchResult(Entity):
         self.log_message = ''
         self.is_processed = False
         self.score = 0
-        self.coreference_text = ''
+        self.relevance_score = 0
         super().__init__()

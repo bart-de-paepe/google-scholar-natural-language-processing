@@ -5,6 +5,7 @@ from requests import HTTPError, Timeout
 from app.src.app_containers import Container
 from app.src.services.crossref_service import CrossrefService
 from app.src.services.email_service import EmailService
+from app.src.services.logging_service import LoggingService
 from app.src.services.natural_language_processing_service import NaturalLanguageProcessingService
 from app.src.services.parse_service import ParseService
 from app.src.services.search_DOI_service import SearchDOIService
@@ -213,11 +214,41 @@ def process_semantic_search(
 def process_natural_language(
         natural_language_processing_service: NaturalLanguageProcessingService = Provide[Container.natural_language_processing_service],
         parse_service: ParseService = Provide[Container.parse_service],
+        logging_service: LoggingService = Provide[Container.logging_service],
 ):  #python -m app.src.main process-natural-language
     unprocessed_ids = natural_language_processing_service.get_unprocessed_ids()
     for search_result_id in unprocessed_ids:
         search_result_text = natural_language_processing_service.get_text(search_result_id['_id'])
-        coreference_text = natural_language_processing_service.do_coreference_resolution(search_result_text)
+
+        #1 Coreference resolution
+        coreference_array = natural_language_processing_service.coreference_resolution(search_result_text)
+
+        #2 pronoun to noun mapping
+        mapped_text = natural_language_processing_service.pronoun_to_noun_mapping(search_result_text, coreference_array)
+
+        #3 tokens
+        token_text = natural_language_processing_service.tokenize(search_result_text)
+        logging_service.logger.debug(mapped_text)
+
+        #4 POS tagging
+        pos_tag_text = natural_language_processing_service.pos_tagging(token_text)
+        logging_service.logger.debug(pos_tag_text)
+
+        #5 stop word removal
+        text_without_stop_words = natural_language_processing_service.remove_stopwords_en(mapped_text)
+        logging_service.logger.debug(text_without_stop_words)
+
+        #6 lemmatization
+        lemmatized_text = natural_language_processing_service.lemmatizing_en(text_without_stop_words)
+        logging_service.logger.debug(lemmatized_text)
+
+        #7 score
+        subject = "traits"
+        number_of_sentences = natural_language_processing_service.number_of_sentences(search_result_text)
+        topic_count = natural_language_processing_service.topic_count(subject, lemmatized_text)
+        number_of_nouns = natural_language_processing_service.number_of_nouns(lemmatized_text)
+        relevance_score = natural_language_processing_service.relevance_score(number_of_sentences, topic_count, number_of_nouns)
+
         # add the coreference to the search result
         search_result_update_where = {
             "_id": search_result_id['_id'],
@@ -225,9 +256,9 @@ def process_natural_language(
         #current_link = semantic_search_service.get_current_link(search_result_id['_id'])
         #current_link.is_processed = True
         current_search_result = parse_service.get_current_search_result(search_result_id['_id'])
-        current_search_result.coreference_text = coreference_text
+        current_search_result.relevance_score = relevance_score
         search_result_update_what = {
-            "coreference_text": current_search_result.coreference_text,
+            "relevance_score": current_search_result.relevance_score,
         }
         parse_service.update_search_result(search_result_update_what, search_result_update_where)
 
