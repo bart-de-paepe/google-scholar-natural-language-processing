@@ -10,6 +10,8 @@ import nltk
 from nltk import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 lemmatizer = WordNetLemmatizer()
 nltk.download('punkt')
 nltk.download('punkt_tab')
@@ -43,7 +45,8 @@ class NaturalLanguageProcessingService:
         text_cursor = self.db_service.select_what_where(what, where)
         text = text_cursor.next()
         text_cursor.close()
-        return text['text']
+        return """China is the largest country. China is also a biggest exporter of metals. China has postponed the expansion of carbon market into other energy-intesive industries such as metals due to 'poor quality' data, local media reported last week. Deliverable stocks of base metals in Shanghai Futures Exchange-registered warehouse diverged into two camps in the week ended Friday May 13. Nickels dropped the most in percentage points, by 27.4%, and tin topping the increase at 44.1%. This situation is because of the global tensions around the Russia and Ukraine."""
+        #return text['text']
 
     def tokenize(self, text: str):
         token_text = word_tokenize(text)
@@ -96,7 +99,7 @@ class NaturalLanguageProcessingService:
         return len(sent_tokenize(text))
 
     def topic_count(self, topic: str, text: str):
-        return text.count(topic)
+        return text.lower().count(topic.lower())
 
     def number_of_nouns(self, text: str):
         lines = 'lines is some string of words'
@@ -108,8 +111,47 @@ class NaturalLanguageProcessingService:
         return len(nouns)
 
     def relevance_score(self, number_of_sentences, topic_count, number_of_nouns):
+        self.logging_service.logger.debug('number_of_sentences: '+str(number_of_sentences))
+        self.logging_service.logger.debug('topic_count: ' + str(topic_count))
+        self.logging_service.logger.debug('number_of_nouns: ' + str(number_of_nouns))
         topic_noun_ratio = topic_count / number_of_nouns
         topic_sentence_ratio = topic_count / number_of_sentences
+        multiplication = topic_count * topic_noun_ratio * topic_sentence_ratio
+        self.logging_service.logger.debug('multiplication: ' + str(multiplication))
+        power = multiplication * pow(10, 5)
+        self.logging_service.logger.debug('power: ' + str(power))
+        logarithm = math.log10(power)
+        self.logging_service.logger.debug('logarithm: ' + str(logarithm))
         score = math.log10(topic_count * topic_noun_ratio * topic_sentence_ratio * pow(10, 5))
         return score
+
+    def tfidvectorizer(self):
+        topic = "VLIZ"
+        unprocessed_ids = self.get_unprocessed_ids()
+        documents = []
+        for search_result_id in unprocessed_ids:
+            text = self.get_text(search_result_id)
+            documents.append(text)
+
+        # Include the topic in the corpus for vectorization
+        corpus = [topic] + documents
+
+        # Create TF-IDF vectorizer
+        vectorizer = TfidfVectorizer()
+
+        # Fit and transform
+        tfidf_matrix = vectorizer.fit_transform(corpus)
+
+        # Topic vector is the first row (index 0)
+        topic_vector = tfidf_matrix[0]
+
+        # Document vectors are the rest (index 1 to end)
+        doc_vectors = tfidf_matrix[1:]
+
+        # Compute cosine similarity
+        similarities = cosine_similarity(topic_vector, doc_vectors).flatten()
+
+        result = zip(unprocessed_ids, similarities)
+        return result
+
 

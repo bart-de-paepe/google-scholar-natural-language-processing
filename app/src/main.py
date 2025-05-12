@@ -217,6 +217,19 @@ def process_natural_language(
         logging_service: LoggingService = Provide[Container.logging_service],
 ):  #python -m app.src.main process-natural-language
     unprocessed_ids = natural_language_processing_service.get_unprocessed_ids()
+    scores = natural_language_processing_service.tfidvectorizer()
+    for search_result_id in unprocessed_ids:
+        # add the coreference to the search result
+        search_result_update_where = {
+            "_id": search_result_id['_id'],
+        }
+        current_search_result = parse_service.get_current_search_result(search_result_id['_id'])
+        current_search_result.relevance_score = scores[f"{search_result_id['_id']}"]
+        search_result_update_what = {
+            "relevance_score": current_search_result.relevance_score,
+        }
+        parse_service.update_search_result(search_result_update_what, search_result_update_where)
+    """
     for search_result_id in unprocessed_ids:
         search_result_text = natural_language_processing_service.get_text(search_result_id['_id'])
 
@@ -243,7 +256,7 @@ def process_natural_language(
         logging_service.logger.debug(lemmatized_text)
 
         #7 score
-        subject = "traits"
+        subject = "China"
         number_of_sentences = natural_language_processing_service.number_of_sentences(search_result_text)
         topic_count = natural_language_processing_service.topic_count(subject, lemmatized_text)
         number_of_nouns = natural_language_processing_service.number_of_nouns(lemmatized_text)
@@ -261,6 +274,7 @@ def process_natural_language(
             "relevance_score": current_search_result.relevance_score,
         }
         parse_service.update_search_result(search_result_update_what, search_result_update_where)
+    """
 
 if __name__ == '__main__':
     container = Container()
