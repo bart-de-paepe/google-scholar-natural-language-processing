@@ -107,11 +107,14 @@ class ParseService:
                 publisher = publisher.rstrip(", ")
                 date = publisher_year_parts[len(publisher_year_parts) - 1]
             else:
-                self.raise_google_scholar_format(email_id, publisher_year_parts[0],
-                                                 "Problem with Google Scholar publisher and date: ")
+                date = publisher_year_parts[0].strip()
+                publisher = ""
+                # self.raise_google_scholar_format(email_id, publisher_year_parts[0], "Problem with Google Scholar publisher and date: ")
         else:
-            self.raise_google_scholar_format(email_id, author_publisher_year,
-                                             "Problem with Google Scholar authors, publisher and date: ")
+            author = author_publisher_year_parts
+            publisher = ""
+            date = ""
+            # self.raise_google_scholar_format(email_id, author_publisher_year, "Problem with Google Scholar authors, publisher and date: ")
 
         return {
             "link": link,

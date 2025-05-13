@@ -218,6 +218,8 @@ def process_natural_language(
 ):  #python -m app.src.main process-natural-language
     unprocessed_ids = natural_language_processing_service.get_unprocessed_ids()
     scores = natural_language_processing_service.tfidvectorizer()
+
+
     for search_result_id in unprocessed_ids:
         # add the coreference to the search result
         search_result_update_where = {

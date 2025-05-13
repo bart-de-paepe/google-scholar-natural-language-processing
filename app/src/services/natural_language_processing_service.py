@@ -45,8 +45,8 @@ class NaturalLanguageProcessingService:
         text_cursor = self.db_service.select_what_where(what, where)
         text = text_cursor.next()
         text_cursor.close()
-        return """China is the largest country. China is also a biggest exporter of metals. China has postponed the expansion of carbon market into other energy-intesive industries such as metals due to 'poor quality' data, local media reported last week. Deliverable stocks of base metals in Shanghai Futures Exchange-registered warehouse diverged into two camps in the week ended Friday May 13. Nickels dropped the most in percentage points, by 27.4%, and tin topping the increase at 44.1%. This situation is because of the global tensions around the Russia and Ukraine."""
-        #return text['text']
+        #return """China is the largest country. China is also a biggest exporter of metals. China has postponed the expansion of carbon market into other energy-intesive industries such as metals due to 'poor quality' data, local media reported last week. Deliverable stocks of base metals in Shanghai Futures Exchange-registered warehouse diverged into two camps in the week ended Friday May 13. Nickels dropped the most in percentage points, by 27.4%, and tin topping the increase at 44.1%. This situation is because of the global tensions around the Russia and Ukraine."""
+        return text['text']
 
     def tokenize(self, text: str):
         token_text = word_tokenize(text)
@@ -126,32 +126,47 @@ class NaturalLanguageProcessingService:
         return score
 
     def tfidvectorizer(self):
-        topic = "VLIZ"
+        topics = ["Vlaams Instituut voor de Zee", "Vlaams Instituut van de Zee", "Flanders Marine Institute", "VLIZ", "Simon Stevin", "R/V Simon Stevin", "RV Simon Stevin", "Marine Station Ostend", "Mariene Station Oostende"]
         unprocessed_ids = self.get_unprocessed_ids()
-        documents = []
+        best_similarities = [0] * len(unprocessed_ids.to_list())
+        for topic in topics:
+            documents = []
+            search_ids = []
+            unprocessed_ids = self.get_unprocessed_ids()
+            for search_result_id in unprocessed_ids:
+                text = self.get_text(search_result_id['_id'])
+                documents.append(text)
+                search_ids.append(f"{search_result_id['_id']}")
+
+            # Include the topic in the corpus for vectorization
+            corpus = [topic] + documents
+
+            # Create TF-IDF vectorizer
+            vectorizer = TfidfVectorizer()
+
+            # Fit and transform
+            tfidf_matrix = vectorizer.fit_transform(corpus)
+
+            # Topic vector is the first row (index 0)
+            topic_vector = tfidf_matrix[0]
+
+
+            # Document vectors are the rest (index 1 to end)
+            doc_vectors = tfidf_matrix[1:]
+
+
+            # Compute cosine similarity
+            similarities = cosine_similarity(topic_vector, doc_vectors).flatten()
+            best_similarities = [max(a, b) for a, b in zip(best_similarities, similarities)]
+
+        search_ids = []
+        unprocessed_ids = self.get_unprocessed_ids()
         for search_result_id in unprocessed_ids:
-            text = self.get_text(search_result_id)
-            documents.append(text)
+            search_ids.append(f"{search_result_id['_id']}")
 
-        # Include the topic in the corpus for vectorization
-        corpus = [topic] + documents
+        result = dict(zip(search_ids, best_similarities))
 
-        # Create TF-IDF vectorizer
-        vectorizer = TfidfVectorizer()
 
-        # Fit and transform
-        tfidf_matrix = vectorizer.fit_transform(corpus)
-
-        # Topic vector is the first row (index 0)
-        topic_vector = tfidf_matrix[0]
-
-        # Document vectors are the rest (index 1 to end)
-        doc_vectors = tfidf_matrix[1:]
-
-        # Compute cosine similarity
-        similarities = cosine_similarity(topic_vector, doc_vectors).flatten()
-
-        result = zip(unprocessed_ids, similarities)
         return result
 
 
